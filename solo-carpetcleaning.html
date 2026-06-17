@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FreshStep Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #0F2240; --navy2: #1a3258;
+      --teal: #0D9488; --teal-dark: #0A7567; --teal-light: #CCFBF1;
+      --amber: #F59E0B; --amber-bg: #FEF3C7;
+      --red: #EF4444; --red-bg: #FEE2E2;
+      --green: #10B981; --green-bg: #D1FAE5;
+      --purple: #8B5CF6; --purple-bg: #EDE9FE;
+      --blue: #3B82F6; --blue-bg: #DBEAFE;
+      --grey: #64748B; --border: #E2E8F0;
+      --bg: #F1F5F9; --white: #FFFFFF; --text: #1E293B;
+    }
+    body { font-family: 'Inter', sans-serif; color: var(--text); background: var(--bg); }
+
+    /* ── LOGIN ── */
+    #login-page {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--navy) 0%, #0A2240 60%, #0D4A5A 100%);
+      display: flex; align-items: center; justify-content: center; padding: 2rem;
+    }
+    .login-card {
+      background: var(--white); border-radius: 20px; padding: 2.5rem;
+      width: 100%; max-width: 380px; box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+    }
+    .login-logo { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; color: var(--navy); }
+    .login-logo em { font-style: normal; color: var(--teal); }
+    .login-sub { font-size: 0.78rem; color: var(--grey); margin-bottom: 1.75rem; margin-top: 0.15rem; }
+    .login-heading { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .login-field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+    .login-field label { font-size: 0.72rem; font-weight: 600; color: var(--grey); text-transform: uppercase; letter-spacing: 0.07em; }
+    .login-field input { border: 1.5px solid var(--border); border-radius: 10px; padding: 0.75rem 1rem; font-family: 'Inter', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s; width: 100%; }
+    .login-field input:focus { border-color: var(--teal); }
+    .login-error { background: var(--red-bg); color: var(--red); border-radius: 8px; padding: 0.625rem 0.875rem; font-size: 0.8rem; margin-bottom: 1rem; display: none; }
+    .btn-login { width: 100%; background: linear-gradient(135deg, var(--teal), #06B6D4); color: var(--white); border: none; border-radius: 10px; padding: 0.9rem; font-family: 'Inter', sans-serif; font-size: 0.9375rem; font-weight: 700; cursor: pointer; margin-top: 0.5rem; transition: opacity 0.2s; }
+    .btn-login:hover { opacity: 0.9; }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── LAYOUT ── */
+    #dashboard { display: none; height: 100vh; overflow: hidden; }
+    .layout { display: flex; height: 100vh; }
+
+    /* ── SIDEBAR ── */
+    .sidebar { width: 240px; background: var(--navy); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+    .sidebar-logo { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700; color: var(--white); padding: 1.4rem 1.25rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .sidebar-logo em { font-style: normal; color: #2DD4BF; }
+    .sidebar-logo small { display: block; font-family: 'Inter', sans-serif; font-size: 0.62rem; color: rgba(255,255,255,0.35); font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 0.2rem; }
+    .sidebar-nav { padding: 0.875rem 0.75rem; flex: 1; }
+    .nav-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,255,255,0.28); padding: 0.6rem 0.5rem 0.3rem; }
+    .nav-item { display: flex; align-items: center; gap: 0.7rem; padding: 0.65rem 0.875rem; border-radius: 9px; color: rgba(255,255,255,0.55); font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 0.15s; margin-bottom: 0.1rem; }
+    .nav-item:hover { background: rgba(255,255,255,0.07); color: var(--white); }
+    .nav-item.active { background: rgba(13,148,136,0.2); color: #2DD4BF; font-weight: 600; }
+    .nav-icon { font-size: 1rem; width: 18px; text-align: center; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; background: var(--amber); color: var(--white); font-size: 0.64rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 50px; display: none; }
+    .sidebar-footer { padding: 0.875rem 0.75rem; border-top: 1px solid rgba(255,255,255,0.08); }
+    .admin-info { display: flex; align-items: center; gap: 0.7rem; padding: 0.625rem 0.5rem; margin-bottom: 0.5rem; }
+    .admin-avatar { width: 32px; height: 32px; background: linear-gradient(135deg, var(--teal), #06B6D4); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--white); font-size: 0.8rem; flex-shrink: 0; }
+    .admin-name-text { font-size: 0.78rem; font-weight: 600; color: var(--white); }
+    .admin-role { font-size: 0.65rem; color: rgba(255,255,255,0.38); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+    .btn-signout { width: 100%; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.22); color: rgba(239,68,68,0.75); border-radius: 8px; padding: 0.525rem; font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .btn-signout:hover { background: rgba(239,68,68,0.22); color: var(--red); }
+
+    /* ── MAIN ── */
+    .main-content { flex: 1; overflow-y: auto; padding: 1.75rem 2rem; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .view-header h1 { font-size: 1.4rem; font-weight: 700; }
+    .view-date { font-size: 0.82rem; color: var(--grey); }
+    .btn-refresh { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.875rem; font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--grey); transition: all 0.15s; }
+    .btn-refresh:hover { border-color: var(--teal); color: var(--teal); }
+
+    /* ── STATS ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--white); border-radius: 14px; padding: 1.25rem; border: 1px solid var(--border); }
+    .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+    .stat-icon-wrap { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .stat-card.s-pending .stat-icon-wrap { background: var(--amber-bg); }
+    .stat-card.s-confirmed .stat-icon-wrap { background: var(--green-bg); }
+    .stat-card.s-today .stat-icon-wrap { background: var(--purple-bg); }
+    .stat-card.s-week .stat-icon-wrap { background: var(--blue-bg); }
+    .stat-num { font-size: 1.9rem; font-weight: 700; line-height: 1; }
+    .stat-card.s-pending .stat-num { color: var(--amber); }
+    .stat-card.s-confirmed .stat-num { color: var(--green); }
+    .stat-card.s-today .stat-num { color: var(--purple); }
+    .stat-card.s-week .stat-num { color: var(--blue); }
+    .stat-label { font-size: 0.76rem; color: var(--grey); margin-top: 0.3rem; font-weight: 500; }
+
+    /* ── SECTION CARD ── */
+    .sc { background: var(--white); border-radius: 14px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 1.5rem; }
+    .sc-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--border); }
+    .sc-header h2 { font-size: 0.9375rem; font-weight: 700; }
+    .btn-view-all { font-size: 0.78rem; color: var(--teal); background: none; border: none; cursor: pointer; font-weight: 600; font-family: 'Inter', sans-serif; }
+    .sc-body { padding: 0.75rem; }
+
+    /* ── BOOKING CARD ── */
+    .filter-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .filter-tab { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 0.38rem 0.875rem; font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--grey); transition: all 0.15s; }
+    .filter-tab:hover { border-color: var(--teal); color: var(--teal); }
+    .filter-tab.active { background: var(--teal); border-color: var(--teal); color: var(--white); }
+
+    .bk-card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 0.75rem; transition: box-shadow 0.15s; }
+    .bk-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+    .bk-top { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1.1rem 0.5rem; gap: 1rem; flex-wrap: wrap; }
+    .bk-name { font-weight: 700; font-size: 0.9375rem; }
+    .bk-service { font-size: 0.78rem; color: var(--grey); margin-top: 0.1rem; }
+    .bk-meta { display: flex; align-items: center; gap: 1.25rem; padding: 0.25rem 1.1rem 0.75rem; flex-wrap: wrap; }
+    .meta-it { display: flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; color: var(--grey); }
+    .meta-it strong { color: var(--text); font-weight: 600; }
+    .meta-it a { color: var(--teal); text-decoration: none; }
+    .bk-notes { padding: 0 1.1rem 0.75rem; font-size: 0.78rem; color: var(--grey); font-style: italic; }
+    .bk-footer { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1.1rem; background: var(--bg); border-top: 1px solid var(--border); flex-wrap: wrap; gap: 0.5rem; }
+    .bk-created { font-size: 0.7rem; color: var(--grey); }
+    .bk-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+    /* Status */
+    .sbadge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.65rem; border-radius: 50px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+    .sbadge.pending { background: var(--amber-bg); color: #92400E; }
+    .sbadge.confirmed { background: var(--green-bg); color: #065F46; }
+    .sbadge.cancelled { background: var(--red-bg); color: #991B1B; }
+    .sbadge.completed { background: #F1F5F9; color: var(--grey); }
+
+    /* Action buttons */
+    .btn-a { padding: 0.35rem 0.75rem; border-radius: 7px; font-family: 'Inter', sans-serif; font-size: 0.74rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
+    .btn-accept { background: var(--green-bg); color: #065F46; }
+    .btn-accept:hover { background: #A7F3D0; }
+    .btn-decline { background: var(--red-bg); color: #991B1B; }
+    .btn-decline:hover { background: #FCA5A5; }
+    .btn-complete { background: var(--purple-bg); color: #4C1D95; }
+    .btn-complete:hover { background: #DDD6FE; }
+    .btn-edit { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-edit:hover { border-color: var(--teal); color: var(--teal); }
+    .btn-restore { background: var(--amber-bg); color: #92400E; }
+    .btn-restore:hover { background: #FDE68A; }
+
+    /* Empty */
+    .empty-st { text-align: center; padding: 2.5rem 1rem; color: var(--grey); }
+    .empty-st .ei { font-size: 2rem; margin-bottom: 0.5rem; }
+    .empty-st p { font-size: 0.85rem; }
+
+    /* ── CALENDAR ── */
+    .cal-layout { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; align-items: start; }
+    .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.1rem; }
+    .cal-nav h2 { font-size: 0.9375rem; font-weight: 700; }
+    .cal-nav-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 7px; width: 32px; height: 32px; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .cal-nav-btn:hover { border-color: var(--teal); color: var(--teal); }
+    .cal-weekdays { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 0.4rem; }
+    .cal-wd { text-align: center; font-size: 0.65rem; font-weight: 700; color: var(--grey); padding: 0.25rem 0; letter-spacing: 0.05em; text-transform: uppercase; }
+    .cal-days { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+    .cal-day { aspect-ratio: 1; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: background 0.12s; gap: 2px; position: relative; }
+    .cal-day:hover:not(.cal-empty):not(.cal-past) { background: var(--bg); }
+    .cal-empty { cursor: default; pointer-events: none; }
+    .cal-today { background: var(--navy) !important; color: var(--white) !important; font-weight: 700; }
+    .cal-today:hover { background: var(--navy2) !important; }
+    .cal-blocked { background: rgba(239,68,68,0.08); color: var(--red); }
+    .cal-blocked:hover { background: rgba(239,68,68,0.15) !important; }
+    .cal-selected { background: var(--teal) !important; color: var(--white) !important; }
+    .cal-past { opacity: 0.38; cursor: default; pointer-events: none; }
+    .cal-has-jobs::after { content: ''; width: 5px; height: 5px; background: var(--teal); border-radius: 50%; }
+    .cal-selected.cal-has-jobs::after { background: rgba(255,255,255,0.8); }
+    .cal-today.cal-has-jobs::after { background: #2DD4BF; }
+    .cal-legend { display: flex; align-items: center; gap: 1rem; margin-top: 0.875rem; flex-wrap: wrap; }
+    .leg { display: flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; color: var(--grey); }
+    .leg-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+    /* Day detail sidebar */
+    .day-detail-header { padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border); }
+    .day-detail-header h3 { font-size: 0.875rem; font-weight: 700; }
+    .day-detail-body { padding: 0.75rem; }
+    .dbi { background: var(--bg); border-radius: 9px; padding: 0.75rem; margin-bottom: 0.5rem; }
+    .dbi-name { font-weight: 700; font-size: 0.84rem; }
+    .dbi-service { font-size: 0.74rem; color: var(--grey); margin-top: 0.1rem; }
+    .dbi-time { font-size: 0.72rem; color: var(--teal); font-weight: 600; margin-top: 0.3rem; }
+    .dbi-addr { font-size: 0.72rem; color: var(--grey); margin-top: 0.15rem; }
+    .dbi-actions { display: flex; gap: 0.35rem; margin-top: 0.5rem; flex-wrap: wrap; }
+    .no-sel { padding: 2rem 1rem; text-align: center; color: var(--grey); font-size: 0.82rem; }
+
+    /* ── AVAILABILITY ── */
+    .avail-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .avail-desc { font-size: 0.82rem; color: var(--grey); padding: 0 1.25rem 1rem; line-height: 1.6; }
+    .avail-cal-wrap { padding: 0 1.25rem 1.25rem; }
+    .cal-day.avail-off { background: rgba(239,68,68,0.1); color: var(--red); font-weight: 600; }
+    .cal-day.avail-off:hover { background: rgba(239,68,68,0.18) !important; }
+    .blocked-item { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1.25rem; border-bottom: 1px solid var(--border); }
+    .blocked-item:last-child { border-bottom: none; }
+    .blocked-label { font-size: 0.84rem; font-weight: 500; }
+    .btn-unblock { background: var(--red-bg); color: var(--red); border: none; border-radius: 6px; padding: 0.28rem 0.65rem; font-size: 0.7rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.15s; }
+    .btn-unblock:hover { background: #FCA5A5; }
+
+    /* ── MODAL ── */
+    .modal-bg { position: fixed; inset: 0; background: rgba(15,34,64,0.55); backdrop-filter: blur(3px); z-index: 100; display: none; }
+    .modal-bg.open { display: block; }
+    .modal-box { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: var(--white); border-radius: 16px; width: 90%; max-width: 540px; max-height: 88vh; overflow-y: auto; z-index: 101; display: none; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+    .modal-box.open { display: block; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--white); z-index: 1; }
+    .modal-head h2 { font-size: 0.9375rem; font-weight: 700; }
+    .btn-mclose { background: var(--bg); border: 1px solid var(--border); border-radius: 7px; width: 30px; height: 30px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; }
+    .modal-body { padding: 1.25rem 1.4rem; }
+    .mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem; }
+    .mfield { display: flex; flex-direction: column; gap: 0.3rem; }
+    .mfield.full { grid-column: span 2; }
+    .mfield label { font-size: 0.7rem; font-weight: 600; color: var(--grey); text-transform: uppercase; letter-spacing: 0.07em; }
+    .mfield input, .mfield select, .mfield textarea { border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem 0.875rem; font-family: 'Inter', sans-serif; font-size: 0.85rem; outline: none; transition: border-color 0.2s; width: 100%; }
+    .mfield input:focus, .mfield select:focus, .mfield textarea:focus { border-color: var(--teal); }
+    .mfield textarea { resize: vertical; min-height: 72px; }
+    .mfield textarea.readonly { background: var(--bg); color: var(--grey); }
+    .modal-foot { display: flex; justify-content: flex-end; gap: 0.625rem; padding: 1rem 1.4rem; border-top: 1px solid var(--border); position: sticky; bottom: 0; background: var(--white); }
+    .btn-mcancel { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.575rem 1.1rem; font-family: 'Inter', sans-serif; font-size: 0.84rem; font-weight: 600; cursor: pointer; color: var(--text); }
+    .btn-msave { background: linear-gradient(135deg, var(--teal), #06B6D4); color: var(--white); border: none; border-radius: 8px; padding: 0.575rem 1.4rem; font-family: 'Inter', sans-serif; font-size: 0.84rem; font-weight: 700; cursor: pointer; }
+    .btn-msave:hover { opacity: 0.9; }
+
+    /* ── TOAST ── */
+    .toast { position: fixed; bottom: 1.25rem; right: 1.25rem; padding: 0.75rem 1.1rem; border-radius: 10px; font-size: 0.84rem; font-weight: 500; z-index: 200; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.18); max-width: 300px; align-items: center; gap: 0.4rem; }
+    .toast.show { display: flex; }
+    .toast.t-ok { background: var(--teal); color: var(--white); }
+    .toast.t-err { background: var(--red); color: var(--white); }
+
+    /* ── RESPONSIVE ── */
+    @media(max-width:1100px) { .stats-grid{grid-template-columns:repeat(2,1fr)} .cal-layout{grid-template-columns:1fr} .avail-layout{grid-template-columns:1fr} }
+    @media(max-width:768px) { .sidebar{width:200px} .main-content{padding:1.25rem} }
+    @media(max-width:600px) {
+      .layout{flex-direction:column} .sidebar{width:100%;height:auto;flex-direction:row;flex-wrap:wrap}
+      .sidebar-logo{width:100%;border-bottom:none;padding:1rem 1rem 0.5rem}
+      .sidebar-nav{display:flex;flex-wrap:wrap;gap:0.25rem;padding:0.5rem;border-bottom:1px solid rgba(255,255,255,0.08)}
+      .nav-label{display:none} .sidebar-footer{display:none}
+      .main-content{padding:1rem}
+      .stats-grid{grid-template-columns:repeat(2,1fr);gap:0.75rem}
+      .mgrid{grid-template-columns:1fr} .mfield.full{grid-column:span 1}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">Fresh<em>Step</em></div>
+    <div class="login-sub">Admin Dashboard</div>
+    <h2 class="login-heading">Welcome back</h2>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="admin@freshstep.com.au" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <button class="btn-login" id="login-btn" onclick="doLogin()">Sign In →</button>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div id="dashboard">
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">Fresh<em>Step</em><small>Admin Panel</small></div>
+      <nav class="sidebar-nav">
+        <div class="nav-label">Main</div>
+        <div class="nav-item active" data-view="overview" onclick="showView('overview')">
+          <span class="nav-icon">📊</span> Overview
+        </div>
+        <div class="nav-item" data-view="bookings" onclick="showView('bookings')">
+          <span class="nav-icon">📋</span> Bookings
+          <span class="nav-badge" id="pending-badge"></span>
+        </div>
+        <div class="nav-item" data-view="calendar" onclick="showView('calendar')">
+          <span class="nav-icon">📅</span> Calendar
+        </div>
+        <div class="nav-item" data-view="availability" onclick="showView('availability')">
+          <span class="nav-icon">🔒</span> Availability
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="admin-info">
+          <div class="admin-avatar">A</div>
+          <div>
+            <div class="admin-name-text">Admin</div>
+            <div class="admin-role" id="admin-email-display">—</div>
+          </div>
+        </div>
+        <button class="btn-signout" onclick="doSignOut()">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+
+      <!-- OVERVIEW -->
+      <div class="view active" id="view-overview">
+        <div class="view-header">
+          <h1>Overview</h1>
+          <div class="view-date" id="view-date"></div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card s-pending">
+            <div class="stat-top"><div class="stat-icon-wrap">⏳</div></div>
+            <div class="stat-num" id="st-pending">—</div>
+            <div class="stat-label">Pending Requests</div>
+          </div>
+          <div class="stat-card s-confirmed">
+            <div class="stat-top"><div class="stat-icon-wrap">✅</div></div>
+            <div class="stat-num" id="st-confirmed">—</div>
+            <div class="stat-label">Confirmed Jobs</div>
+          </div>
+          <div class="stat-card s-today">
+            <div class="stat-top"><div class="stat-icon-wrap">📅</div></div>
+            <div class="stat-num" id="st-today">—</div>
+            <div class="stat-label">Today's Jobs</div>
+          </div>
+          <div class="stat-card s-week">
+            <div class="stat-top"><div class="stat-icon-wrap">📆</div></div>
+            <div class="stat-num" id="st-week">—</div>
+            <div class="stat-label">This Week</div>
+          </div>
+        </div>
+        <div class="sc">
+          <div class="sc-header">
+            <h2>Pending Requests</h2>
+            <button class="btn-view-all" onclick="showView('bookings');setFilter('pending')">View All →</button>
+          </div>
+          <div class="sc-body" id="ov-pending"></div>
+        </div>
+        <div class="sc">
+          <div class="sc-header">
+            <h2>Upcoming Confirmed Jobs</h2>
+            <button class="btn-view-all" onclick="showView('calendar')">Calendar →</button>
+          </div>
+          <div class="sc-body" id="ov-upcoming"></div>
+        </div>
+      </div>
+
+      <!-- BOOKINGS -->
+      <div class="view" id="view-bookings">
+        <div class="view-header">
+          <h1>Bookings</h1>
+          <button class="btn-refresh" onclick="loadAll()">↻ Refresh</button>
+        </div>
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
+          <button class="filter-tab" onclick="setFilter('pending',this)">⏳ Pending</button>
+          <button class="filter-tab" onclick="setFilter('confirmed',this)">✅ Confirmed</button>
+          <button class="filter-tab" onclick="setFilter('cancelled',this)">❌ Cancelled</button>
+          <button class="filter-tab" onclick="setFilter('completed',this)">✓ Completed</button>
+        </div>
+        <div id="bookings-list"></div>
+      </div>
+
+      <!-- CALENDAR -->
+      <div class="view" id="view-calendar">
+        <div class="view-header"><h1>Calendar</h1></div>
+        <div class="cal-layout">
+          <div class="sc">
+            <div class="sc-body" style="padding:1.25rem;">
+              <div class="cal-nav">
+                <button class="cal-nav-btn" onclick="calPrev()">◀</button>
+                <h2 id="cal-label">—</h2>
+                <button class="cal-nav-btn" onclick="calNext()">▶</button>
+              </div>
+              <div id="cal-grid"></div>
+              <div class="cal-legend">
+                <div class="leg"><div class="leg-dot" style="background:var(--teal)"></div>Job booked</div>
+                <div class="leg"><div class="leg-dot" style="background:var(--navy)"></div>Today</div>
+                <div class="leg"><div class="leg-dot" style="background:var(--red);opacity:0.5"></div>Blocked</div>
+              </div>
+            </div>
+          </div>
+          <div class="sc" id="cal-detail">
+            <div class="no-sel">← Click a date to see jobs</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AVAILABILITY -->
+      <div class="view" id="view-availability">
+        <div class="view-header"><h1>Availability</h1></div>
+        <div class="avail-layout">
+          <div class="sc">
+            <div class="sc-header"><h2>Block / Unblock Dates</h2></div>
+            <p class="avail-desc">Click any future date to block or unblock it. Customers cannot book blocked dates.</p>
+            <div class="avail-cal-wrap">
+              <div class="cal-nav">
+                <button class="cal-nav-btn" onclick="availPrev()">◀</button>
+                <h2 id="avail-label">—</h2>
+                <button class="cal-nav-btn" onclick="availNext()">▶</button>
+              </div>
+              <div id="avail-grid"></div>
+            </div>
+          </div>
+          <div class="sc">
+            <div class="sc-header"><h2>Blocked Dates</h2></div>
+            <div id="blocked-list"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="closeModal()"></div>
+<div class="modal-box" id="modal-box">
+  <div class="modal-head">
+    <h2>Edit Booking</h2>
+    <button class="btn-mclose" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="mgrid">
+      <div class="mfield"><label>First Name</label><input type="text" id="m-fname"/></div>
+      <div class="mfield"><label>Last Name</label><input type="text" id="m-lname"/></div>
+      <div class="mfield"><label>Email</label><input type="email" id="m-email"/></div>
+      <div class="mfield"><label>Phone</label><input type="tel" id="m-phone"/></div>
+      <div class="mfield full">
+        <label>Service</label>
+        <select id="m-service">
+          <option>Residential Deep Clean</option>
+          <option>Commercial Cleaning</option>
+          <option>Pet Stain &amp; Odor</option>
+          <option>Stain Protection Add-on</option>
+        </select>
+      </div>
+      <div class="mfield"><label>Date</label><input type="date" id="m-date"/></div>
+      <div class="mfield">
+        <label>Time</label>
+        <select id="m-time">
+          <option value="">Any time</option>
+          <option>Morning (8am – 12pm)</option>
+          <option>Afternoon (12pm – 4pm)</option>
+          <option>Late Afternoon (4pm – 7pm)</option>
+        </select>
+      </div>
+      <div class="mfield full"><label>Address</label><input type="text" id="m-address"/></div>
+      <div class="mfield full">
+        <label>Status</label>
+        <select id="m-status">
+          <option value="pending">⏳ Pending</option>
+          <option value="confirmed">✅ Confirmed</option>
+          <option value="cancelled">❌ Cancelled</option>
+          <option value="completed">✓ Completed</option>
+        </select>
+      </div>
+      <div class="mfield full"><label>Customer Notes</label><textarea id="m-notes" class="readonly" readonly></textarea></div>
+      <div class="mfield full"><label>Admin Notes (internal)</label><textarea id="m-admin-notes" placeholder="Notes only you can see…"></textarea></div>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn-mcancel" onclick="closeModal()">Cancel</button>
+    <button class="btn-msave" onclick="saveEdit()">Save Changes</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── PASTE YOUR SUPABASE DETAILS HERE ──
+  const SUPABASE_URL = 'https://rnmmemsavrcumxkfqfkj.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJubW1lbXNhdnJjdW14a2ZxZmtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDA3NjYsImV4cCI6MjA5NzE3Njc2Nn0.Eno_NuNIdABeHTnnt_phA-w974icdXvfUuvC6l5joLk';
+  // ──────────────────────────────────────
+
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── STATE ──
+  let bookings = [];
+  let blocked = [];
+  let filter = 'all';
+  let calDate = new Date();
+  let availDate = new Date();
+  let selDay = null;
+  let editId = null;
+  let curView = 'overview';
+
+  // ── INIT ──
+  async function init() {
+    document.getElementById('view-date').textContent =
+      new Date().toLocaleDateString('en-AU', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+    const { data: { session } } = await db.auth.getSession();
+    if (session) enterDash(session.user);
+    else showLogin();
+
+    db.auth.onAuthStateChange((_, session) => {
+      if (session) enterDash(session.user);
+      else showLogin();
+    });
+  }
+
+  function showLogin() {
+    document.getElementById('login-page').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+  }
+
+  function enterDash(user) {
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('admin-email-display').textContent = user.email;
+    loadAll();
+  }
+
+  async function doLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const pw = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+    errEl.style.display = 'none';
+    if (!email || !pw) { errEl.textContent = 'Enter email and password.'; errEl.style.display = 'block'; return; }
+    btn.textContent = 'Signing in…'; btn.disabled = true;
+    const { error } = await db.auth.signInWithPassword({ email, password: pw });
+    if (error) {
+      errEl.textContent = error.message.includes('Invalid') ? 'Incorrect email or password.' : error.message;
+      errEl.style.display = 'block';
+      btn.textContent = 'Sign In →'; btn.disabled = false;
+    }
+  }
+
+  async function doSignOut() { await db.auth.signOut(); }
+
+  // ── DATA ──
+  async function loadAll() {
+    const [bRes, dRes] = await Promise.all([
+      db.from('bookings').select('*').order('date', { ascending: true }),
+      db.from('blocked_dates').select('*').order('date')
+    ]);
+    if (!bRes.error && bRes.data) bookings = bRes.data;
+    if (!dRes.error && dRes.data) blocked = dRes.data;
+    renderBadge();
+    renderView();
+  }
+
+  function renderBadge() {
+    const n = bookings.filter(b => b.status === 'pending').length;
+    const el = document.getElementById('pending-badge');
+    el.textContent = n; el.style.display = n ? 'inline' : 'none';
+  }
+
+  // ── VIEWS ──
+  function showView(v) {
+    curView = v;
+    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+    document.getElementById('view-' + v).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelector('[data-view="' + v + '"]').classList.add('active');
+    renderView();
+  }
+
+  function renderView() {
+    if (curView === 'overview') renderOverview();
+    else if (curView === 'bookings') renderBookings();
+    else if (curView === 'calendar') renderCal();
+    else if (curView === 'availability') renderAvail();
+  }
+
+  // ── OVERVIEW ──
+  function renderOverview() {
+    const today = todayStr();
+    const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7);
+    const we = weekEnd.toISOString().split('T')[0];
+    const pending = bookings.filter(b => b.status === 'pending');
+    const confirmed = bookings.filter(b => b.status === 'confirmed');
+    const todayJobs = confirmed.filter(b => b.date === today);
+    const weekJobs = confirmed.filter(b => b.date >= today && b.date <= we);
+
+    document.getElementById('st-pending').textContent = pending.length;
+    document.getElementById('st-confirmed').textContent = confirmed.length;
+    document.getElementById('st-today').textContent = todayJobs.length;
+    document.getElementById('st-week').textContent = weekJobs.length;
+
+    const pe = document.getElementById('ov-pending');
+    pe.innerHTML = pending.length === 0
+      ? empty('🎉', 'No pending requests — all clear!')
+      : pending.slice(0,5).map(b => bkCard(b)).join('');
+
+    const ue = document.getElementById('ov-upcoming');
+    const upcoming = confirmed.filter(b => b.date >= today).slice(0,5);
+    ue.innerHTML = upcoming.length === 0
+      ? empty('📅', 'No upcoming confirmed jobs yet')
+      : upcoming.map(b => bkCard(b)).join('');
+  }
+
+  // ── BOOKINGS ──
+  function setFilter(f, el) {
+    filter = f;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+    else {
+      // called programmatically — find matching tab
+      document.querySelectorAll('.filter-tab').forEach(t => {
+        if (t.getAttribute('onclick') && t.getAttribute('onclick').includes("'" + f + "'")) t.classList.add('active');
+      });
+    }
+    if (curView === 'bookings') renderBookings();
+  }
+
+  function renderBookings() {
+    const list = document.getElementById('bookings-list');
+    const items = filter === 'all' ? bookings : bookings.filter(b => b.status === filter);
+    list.innerHTML = items.length === 0
+      ? empty('📭', 'No bookings found')
+      : items.map(b => bkCard(b)).join('');
+  }
+
+  function bkCard(b) {
+    const created = b.created_at ? new Date(b.created_at).toLocaleDateString('en-AU') : '';
+    return `
+      <div class="bk-card" id="bk-${b.id}">
+        <div class="bk-top">
+          <div>
+            <div class="bk-name">${x(b.fname)} ${x(b.lname||'')}</div>
+            <div class="bk-service">${x(b.service)}</div>
+          </div>
+          <span class="sbadge ${b.status}">${statusIcon(b.status)} ${b.status}</span>
+        </div>
+        <div class="bk-meta">
+          <div class="meta-it">📅 <strong>${fmtDate(b.date)}</strong></div>
+          ${b.time ? `<div class="meta-it">⏰ ${x(b.time)}</div>` : ''}
+          ${b.address ? `<div class="meta-it">📍 ${x(b.address)}</div>` : ''}
+          ${b.phone ? `<div class="meta-it">📞 <a href="tel:${x(b.phone)}">${x(b.phone)}</a></div>` : ''}
+          ${b.email ? `<div class="meta-it">✉️ <a href="mailto:${x(b.email)}">${x(b.email)}</a></div>` : ''}
+        </div>
+        ${b.notes ? `<div class="bk-notes">"${x(b.notes)}"</div>` : ''}
+        <div class="bk-footer">
+          <div class="bk-created">Received: ${created}</div>
+          <div class="bk-actions">${bkActions(b)}</div>
+        </div>
+      </div>`;
+  }
+
+  function bkActions(b) {
+    const edit = `<button class="btn-a btn-edit" onclick="openModal('${b.id}')">✏️ Edit</button>`;
+    if (b.status === 'pending') return edit +
+      `<button class="btn-a btn-accept" onclick="setStatus('${b.id}','confirmed')">✅ Accept</button>` +
+      `<button class="btn-a btn-decline" onclick="setStatus('${b.id}','cancelled')">❌ Decline</button>`;
+    if (b.status === 'confirmed') return edit +
+      `<button class="btn-a btn-complete" onclick="setStatus('${b.id}','completed')">✓ Complete</button>` +
+      `<button class="btn-a btn-decline" onclick="setStatus('${b.id}','cancelled')">❌ Cancel</button>`;
+    if (b.status === 'cancelled') return edit +
+      `<button class="btn-a btn-restore" onclick="setStatus('${b.id}','pending')">↩️ Restore</button>`;
+    if (b.status === 'completed') return edit +
+      `<button class="btn-a btn-restore" onclick="setStatus('${b.id}','confirmed')">↩️ Re-open</button>`;
+    return edit;
+  }
+
+  async function setStatus(id, status) {
+    const { error } = await db.from('bookings').update({ status }).eq('id', id);
+    if (error) { toast('Error updating', 'err'); return; }
+    bookings = bookings.map(b => b.id === id ? { ...b, status } : b);
+    renderBadge(); renderView();
+    toast('Booking ' + status + '!', 'ok');
+  }
+
+  // ── CALENDAR ──
+  function renderCal() {
+    buildGrid('cal-grid', calDate, false);
+    document.getElementById('cal-label').textContent =
+      calDate.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+  }
+
+  function calPrev() { calDate.setMonth(calDate.getMonth()-1); renderCal(); }
+  function calNext() { calDate.setMonth(calDate.getMonth()+1); renderCal(); }
+
+  function buildGrid(containerId, date, isAvail) {
+    const y = date.getFullYear(), m = date.getMonth();
+    const firstDay = new Date(y, m, 1).getDay();
+    const offset = (firstDay + 6) % 7;
+    const days = new Date(y, m+1, 0).getDate();
+    const today = todayStr();
+    const blockedSet = new Set(blocked.map(d => d.date));
+    const jobMap = {};
+    bookings.forEach(b => {
+      if (!jobMap[b.date]) jobMap[b.date] = [];
+      jobMap[b.date].push(b);
+    });
+
+    const wds = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    let h = '<div class="cal-weekdays">' + wds.map(d => `<div class="cal-wd">${d}</div>`).join('') + '</div>';
+    h += '<div class="cal-days">';
+    for (let i = 0; i < offset; i++) h += '<div class="cal-day cal-empty"></div>';
+
+    for (let d = 1; d <= days; d++) {
+      const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isToday = ds === today;
+      const isBlocked = blockedSet.has(ds);
+      const isPast = ds < today;
+      const jobs = jobMap[ds] || [];
+      const hasJobs = jobs.length > 0;
+
+      let cls = 'cal-day';
+      if (isToday) cls += ' cal-today';
+      else if (isAvail && isBlocked) cls += ' avail-off';
+      else if (!isAvail && isBlocked) cls += ' cal-blocked';
+      if (isPast) cls += ' cal-past';
+      if (hasJobs && !isBlocked) cls += ' cal-has-jobs';
+      if (!isAvail && selDay === ds) cls += ' cal-selected';
+
+      const clickFn = isAvail
+        ? (isPast ? '' : `onclick="toggleBlock('${ds}')"`)
+        : `onclick="selectDay('${ds}')"`;
+
+      const countBadge = hasJobs && !isBlocked && jobs.length > 1
+        ? `<span style="font-size:0.55rem;line-height:1;margin-top:1px;opacity:0.7">${jobs.length}</span>` : '';
+
+      h += `<div class="${cls}" ${clickFn}>${d}${countBadge}</div>`;
+    }
+
+    h += '</div>';
+    document.getElementById(containerId).innerHTML = h;
+  }
+
+  function selectDay(ds) {
+    selDay = ds;
+    renderCal();
+    const dayJobs = bookings.filter(b => b.date === ds);
+    const isBlocked = blocked.some(d => d.date === ds);
+    const label = new Date(ds + 'T00:00:00').toLocaleDateString('en-AU',
+      { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+    let h = `<div class="day-detail-header">
+      <h3>${label}</h3>
+      ${isBlocked ? '<span class="sbadge cancelled" style="margin-top:0.35rem;display:inline-flex">🔒 Blocked</span>' : ''}
+    </div><div class="day-detail-body">`;
+
+    if (dayJobs.length === 0) {
+      h += '<div class="empty-st" style="padding:1.5rem 0"><div class="ei">📭</div><p>No jobs this day</p></div>';
+    } else {
+      dayJobs.forEach(b => {
+        h += `<div class="dbi">
+          <div class="dbi-name">${x(b.fname)} ${x(b.lname||'')}</div>
+          <div class="dbi-service">${x(b.service)}</div>
+          ${b.time ? `<div class="dbi-time">⏰ ${x(b.time)}</div>` : ''}
+          ${b.address ? `<div class="dbi-addr">📍 ${x(b.address)}</div>` : ''}
+          <div class="dbi-actions">
+            <span class="sbadge ${b.status}">${statusIcon(b.status)} ${b.status}</span>
+            ${b.status === 'pending' ? `<button class="btn-a btn-accept" style="padding:0.2rem 0.55rem;font-size:0.7rem" onclick="setStatus('${b.id}','confirmed')">Accept</button>` : ''}
+            <button class="btn-a btn-edit" style="padding:0.2rem 0.55rem;font-size:0.7rem" onclick="openModal('${b.id}')">Edit</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    h += '</div>';
+    document.getElementById('cal-detail').innerHTML = h;
+  }
+
+  // ── AVAILABILITY ──
+  function renderAvail() {
+    buildGrid('avail-grid', availDate, true);
+    document.getElementById('avail-label').textContent =
+      availDate.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+
+    const today = todayStr();
+    const future = blocked.filter(d => d.date >= today).sort((a,b) => a.date.localeCompare(b.date));
+    const el = document.getElementById('blocked-list');
+    el.innerHTML = future.length === 0
+      ? empty('✅', 'No blocked dates — you\'re fully open!')
+      : future.map(d => `
+          <div class="blocked-item">
+            <div class="blocked-label">🔒 ${fmtDate(d.date)}</div>
+            <button class="btn-unblock" onclick="toggleBlock('${d.date}')">Unblock</button>
+          </div>`).join('');
+  }
+
+  function availPrev() { availDate.setMonth(availDate.getMonth()-1); renderAvail(); }
+  function availNext() { availDate.setMonth(availDate.getMonth()+1); renderAvail(); }
+
+  async function toggleBlock(ds) {
+    const existing = blocked.find(d => d.date === ds);
+    if (existing) {
+      const { error } = await db.from('blocked_dates').delete().eq('id', existing.id);
+      if (error) { toast('Error', 'err'); return; }
+      blocked = blocked.filter(d => d.id !== existing.id);
+      toast('Date unblocked', 'ok');
+    } else {
+      const { data, error } = await db.from('blocked_dates').insert([{ date: ds, reason: 'Blocked by admin' }]).select();
+      if (error) { toast('Error', 'err'); return; }
+      if (data) blocked.push(data[0]);
+      toast('Date blocked', 'ok');
+    }
+    renderAvail();
+    if (curView === 'calendar') renderCal();
+  }
+
+  // ── MODAL ──
+  function openModal(id) {
+    const b = bookings.find(b => b.id === id);
+    if (!b) return;
+    editId = id;
+    document.getElementById('m-fname').value = b.fname || '';
+    document.getElementById('m-lname').value = b.lname || '';
+    document.getElementById('m-email').value = b.email || '';
+    document.getElementById('m-phone').value = b.phone || '';
+    document.getElementById('m-service').value = b.service || '';
+    document.getElementById('m-date').value = b.date || '';
+    document.getElementById('m-time').value = b.time || '';
+    document.getElementById('m-address').value = b.address || '';
+    document.getElementById('m-status').value = b.status || 'pending';
+    document.getElementById('m-notes').value = b.notes || '';
+    document.getElementById('m-admin-notes').value = b.admin_notes || '';
+    document.getElementById('modal-bg').classList.add('open');
+    document.getElementById('modal-box').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modal-bg').classList.remove('open');
+    document.getElementById('modal-box').classList.remove('open');
+    editId = null;
+  }
+
+  async function saveEdit() {
+    if (!editId) return;
+    const updates = {
+      fname: document.getElementById('m-fname').value.trim(),
+      lname: document.getElementById('m-lname').value.trim(),
+      email: document.getElementById('m-email').value.trim(),
+      phone: document.getElementById('m-phone').value.trim(),
+      service: document.getElementById('m-service').value,
+      date: document.getElementById('m-date').value,
+      time: document.getElementById('m-time').value,
+      address: document.getElementById('m-address').value.trim(),
+      status: document.getElementById('m-status').value,
+      admin_notes: document.getElementById('m-admin-notes').value.trim(),
+    };
+    const { error } = await db.from('bookings').update(updates).eq('id', editId);
+    if (error) { toast('Error saving', 'err'); return; }
+    bookings = bookings.map(b => b.id === editId ? { ...b, ...updates } : b);
+    closeModal(); renderBadge(); renderView();
+    toast('Booking updated!', 'ok');
+  }
+
+  // ── UTILS ──
+  function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+  function fmtDate(ds) {
+    if (!ds) return '—';
+    return new Date(ds + 'T00:00:00').toLocaleDateString('en-AU',
+      { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+  }
+
+  function statusIcon(s) { return {pending:'⏳',confirmed:'✅',cancelled:'❌',completed:'✓'}[s]||''; }
+
+  function x(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function empty(icon, msg) {
+    return `<div class="empty-st"><div class="ei">${icon}</div><p>${msg}</p></div>`;
+  }
+
+  function toast(msg, type) {
+    const el = document.getElementById('toast');
+    el.textContent = (type === 'ok' ? '✅ ' : '❌ ') + msg;
+    el.className = 'toast show t-' + type;
+    setTimeout(() => { el.className = 'toast'; }, 3000);
+  }
+
+  init();
+</script>
+</body>
+</html>
