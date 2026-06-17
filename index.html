@@ -6,6 +6,7 @@
   <title>FreshStep Carpet Cleaning</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -624,10 +625,15 @@
 </footer>
 
 <script>
-  // ── PASTE YOUR SUPABASE DETAILS HERE ──
+  // ── SUPABASE ──
   const SUPABASE_URL = 'https://rnmmemsavrcumxkfqfkj.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJubW1lbXNhdnJjdW14a2ZxZmtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDA3NjYsImV4cCI6MjA5NzE3Njc2Nn0.Eno_NuNIdABeHTnnt_phA-w974icdXvfUuvC6l5joLk';
-  // ─────────────────────────────────────
+
+  // ── EMAILJS — fill these in after setting up EmailJS ──
+  const EMAILJS_SERVICE_ID  = 'YOUR_SERVICE_ID';
+  const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID';
+  const EMAILJS_PUBLIC_KEY  = 'YOUR_PUBLIC_KEY';
+  // ──────────────────────────────────────────────────────
 
   const { createClient } = supabase;
   const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -705,6 +711,28 @@
     const msg = document.getElementById('success-msg');
     msg.style.display = 'block';
     msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Send notification email (silent — booking already succeeded)
+    try {
+      const { data: setting } = await db.from('settings').select('value').eq('key', 'notification_email').single();
+      const toEmail = setting?.value || 'shenukagunathilake7@gmail.com';
+      const lname = document.getElementById('lname').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const time  = document.getElementById('time').value;
+      const address = document.getElementById('address').value.trim();
+      const notes = document.getElementById('notes').value.trim();
+      emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email:      toEmail,
+        customer_name: fname + (lname ? ' ' + lname : ''),
+        customer_email: email,
+        customer_phone: phone || '—',
+        service,
+        date,
+        time:    time    || 'Flexible',
+        address: address || '—',
+        notes:   notes   || '—',
+      }, EMAILJS_PUBLIC_KEY);
+    } catch(e) { /* silent — don't affect customer experience */ }
   }
 </script>
 </body>

@@ -309,6 +309,9 @@
           <span class="nav-icon">🔒</span> Availability
         </div>
         <div class="nav-label" style="margin-top:0.75rem">Account</div>
+        <div class="nav-item" data-view="settings" onclick="showView('settings')">
+          <span class="nav-icon">⚙️</span> Settings
+        </div>
         <div class="nav-item" data-view="security" onclick="showView('security')">
           <span class="nav-icon">🛡️</span> Security
         </div>
@@ -432,6 +435,28 @@
           <div class="sc">
             <div class="sc-header"><h2>Blocked Dates</h2></div>
             <div id="blocked-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="view" id="view-settings">
+        <div class="view-header"><h1>Settings</h1></div>
+        <div class="sc" style="max-width:520px">
+          <div class="sc-header"><h2>Notifications</h2></div>
+          <div style="padding:1.25rem 1.4rem">
+            <div class="mfield full">
+              <label>Notification Email</label>
+              <input type="email" id="notif-email" placeholder="your@email.com"/>
+            </div>
+            <div style="font-size:0.78rem;color:var(--grey);margin-top:0.5rem;line-height:1.6">
+              You'll get an email here every time a customer submits a booking request.
+            </div>
+            <div class="mfa-error" id="settings-error" style="margin-top:0.875rem"></div>
+            <div style="margin-top:1rem;display:flex;align-items:center;gap:0.75rem">
+              <button class="btn-msave" onclick="saveSettings()">Save</button>
+              <span id="settings-saved" style="font-size:0.8rem;color:var(--teal);display:none">✓ Saved</span>
+            </div>
           </div>
         </div>
       </div>
@@ -655,6 +680,31 @@
     await db.auth.signOut();
   }
 
+  // ── SETTINGS ──
+  async function renderSettings() {
+    const { data } = await db.from('settings').select('value').eq('key', 'notification_email').single();
+    document.getElementById('notif-email').value = data?.value || '';
+    document.getElementById('settings-error').style.display = 'none';
+    document.getElementById('settings-saved').style.display = 'none';
+  }
+
+  async function saveSettings() {
+    const email = document.getElementById('notif-email').value.trim();
+    const errEl = document.getElementById('settings-error');
+    const savedEl = document.getElementById('settings-saved');
+    errEl.style.display = 'none';
+    savedEl.style.display = 'none';
+    if (!email || !email.includes('@')) {
+      errEl.textContent = 'Enter a valid email address.';
+      errEl.style.display = 'block'; return;
+    }
+    const { error } = await db.from('settings')
+      .upsert({ key: 'notification_email', value: email }, { onConflict: 'key' });
+    if (error) { errEl.textContent = 'Error saving: ' + error.message; errEl.style.display = 'block'; return; }
+    savedEl.style.display = 'inline';
+    setTimeout(() => { savedEl.style.display = 'none'; }, 3000);
+  }
+
   // ── MFA SETUP ──
   async function startMfaSetup() {
     const { data, error } = await db.auth.mfa.enroll({ factorType: 'totp', issuer: 'FreshStep Admin', friendlyName: 'Authenticator App' });
@@ -757,6 +807,7 @@
     else if (curView === 'bookings') renderBookings();
     else if (curView === 'calendar') renderCal();
     else if (curView === 'availability') renderAvail();
+    else if (curView === 'settings') renderSettings();
     else if (curView === 'security') renderSecurity();
   }
 
