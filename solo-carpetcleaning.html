@@ -44,6 +44,20 @@
     .btn-login:hover { opacity: 0.9; }
     .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
 
+    /* ── MFA ── */
+    #step-mfa { display: none; }
+    .mfa-hint { font-size: 0.82rem; color: var(--grey); margin-bottom: 1.25rem; line-height: 1.6; }
+    .mfa-code-input { text-align: center; letter-spacing: 0.45em; font-size: 1.6rem; font-weight: 700; padding: 0.875rem; border: 2px solid var(--border); border-radius: 10px; width: 100%; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; }
+    .mfa-code-input:focus { border-color: var(--teal); }
+    .mfa-error { background: var(--red-bg); color: var(--red); border-radius: 8px; padding: 0.625rem 0.875rem; font-size: 0.8rem; margin-bottom: 1rem; display: none; }
+    .btn-back { background: none; border: none; color: var(--grey); font-size: 0.82rem; cursor: pointer; font-family: 'Inter', sans-serif; margin-top: 0.875rem; text-decoration: underline; width: 100%; text-align: center; display: block; }
+    .setup-qr-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; text-align: center; margin: 1rem 0; }
+    .setup-qr-wrap img { max-width: 190px; display: block; margin: 0 auto; }
+    .setup-secret { font-family: monospace; font-size: 0.75rem; background: var(--white); border: 1px solid var(--border); padding: 0.4rem 0.75rem; border-radius: 6px; margin-top: 0.5rem; word-break: break-all; color: var(--grey); display: inline-block; }
+    .twofa-status { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.4rem; }
+    .twofa-label { font-size: 0.875rem; font-weight: 600; }
+    .twofa-desc { font-size: 0.78rem; color: var(--grey); margin-top: 0.2rem; }
+
     /* ── LAYOUT ── */
     #dashboard { display: none; height: 100vh; overflow: hidden; }
     .layout { display: flex; height: 100vh; }
@@ -244,17 +258,31 @@
   <div class="login-card">
     <div class="login-logo">Fresh<em>Step</em></div>
     <div class="login-sub">Admin Dashboard</div>
-    <h2 class="login-heading">Welcome back</h2>
-    <div class="login-error" id="login-error"></div>
-    <div class="login-field">
-      <label>Email</label>
-      <input type="email" id="login-email" placeholder="admin@freshstep.com.au" onkeydown="if(event.key==='Enter')doLogin()"/>
+
+    <!-- Step 1: Email + Password -->
+    <div id="step-login">
+      <h2 class="login-heading">Welcome back</h2>
+      <div class="login-error" id="login-error"></div>
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="admin@freshstep.com.au" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="btn-login" id="login-btn" onclick="doLogin()">Sign In →</button>
     </div>
-    <div class="login-field">
-      <label>Password</label>
-      <input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+
+    <!-- Step 2: 2FA Verification -->
+    <div id="step-mfa">
+      <h2 class="login-heading">Two-step verification</h2>
+      <p class="mfa-hint">Open your <strong>Google Authenticator</strong> or <strong>Authy</strong> app and enter the 6-digit code.</p>
+      <div class="mfa-error" id="mfa-error"></div>
+      <input type="text" class="mfa-code-input" id="mfa-code" maxlength="6" placeholder="000000" inputmode="numeric" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')verifyMfa()"/>
+      <button class="btn-login" id="mfa-btn" onclick="verifyMfa()" style="margin-top:1rem">Verify →</button>
+      <button class="btn-back" onclick="backToLogin()">← Back to login</button>
     </div>
-    <button class="btn-login" id="login-btn" onclick="doLogin()">Sign In →</button>
   </div>
 </div>
 
@@ -279,6 +307,10 @@
         </div>
         <div class="nav-item" data-view="availability" onclick="showView('availability')">
           <span class="nav-icon">🔒</span> Availability
+        </div>
+        <div class="nav-label" style="margin-top:0.75rem">Account</div>
+        <div class="nav-item" data-view="security" onclick="showView('security')">
+          <span class="nav-icon">🛡️</span> Security
         </div>
       </nav>
       <div class="sidebar-footer">
@@ -404,6 +436,21 @@
         </div>
       </div>
 
+      <!-- SECURITY -->
+      <div class="view" id="view-security">
+        <div class="view-header"><h1>Security</h1></div>
+        <div class="sc" style="max-width:520px">
+          <div class="sc-header"><h2>Two-Factor Authentication (2FA)</h2></div>
+          <div id="security-content">
+            <div class="twofa-status">
+              <div>
+                <div class="twofa-label">Loading…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -460,6 +507,36 @@
   </div>
 </div>
 
+<!-- MFA SETUP MODAL -->
+<div class="modal-bg" id="mfa-modal-bg" onclick="closeMfaModal()"></div>
+<div class="modal-box" id="mfa-modal-box">
+  <div class="modal-head">
+    <h2>Set Up Two-Factor Authentication</h2>
+    <button class="btn-mclose" onclick="closeMfaModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div style="font-size:0.84rem;color:var(--grey);line-height:1.7;margin-bottom:0.5rem">
+      <strong style="color:var(--text)">Step 1 —</strong> Install <strong>Google Authenticator</strong> or <strong>Authy</strong> on your phone (free from the App Store / Play Store).<br/>
+      <strong style="color:var(--text)">Step 2 —</strong> Tap the + button in the app and scan the QR code below.<br/>
+      <strong style="color:var(--text)">Step 3 —</strong> Enter the 6-digit code the app shows to confirm.
+    </div>
+    <div class="setup-qr-wrap">
+      <img id="setup-qr" src="" alt="QR Code" style="image-rendering:pixelated"/>
+      <div style="font-size:0.7rem;color:var(--grey);margin-top:0.75rem">Can't scan? Enter this key manually in the app:</div>
+      <div class="setup-secret" id="setup-secret"></div>
+    </div>
+    <div class="mfield full">
+      <label>Verification Code</label>
+      <input type="text" id="setup-code" maxlength="6" placeholder="Enter 6-digit code" inputmode="numeric" autocomplete="one-time-code" style="text-align:center;letter-spacing:0.4em;font-size:1.2rem;font-weight:700" onkeydown="if(event.key==='Enter')confirmMfaSetup()"/>
+    </div>
+    <div class="mfa-error" id="setup-error" style="margin-top:0.75rem"></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn-mcancel" onclick="closeMfaModal()">Cancel</button>
+    <button class="btn-msave" onclick="confirmMfaSetup()">Enable 2FA</button>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -481,6 +558,9 @@
   let selDay = null;
   let editId = null;
   let curView = 'overview';
+  let mfaFactorId = null;
+  let mfaChallengeId = null;
+  let enrollData = null;
 
   // ── INIT ──
   async function init() {
@@ -500,9 +580,31 @@
   function showLogin() {
     document.getElementById('login-page').style.display = 'flex';
     document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('step-login').style.display = 'block';
+    document.getElementById('step-mfa').style.display = 'none';
+    const btn = document.getElementById('login-btn');
+    btn.textContent = 'Sign In →'; btn.disabled = false;
   }
 
-  function enterDash(user) {
+  async function enterDash(user) {
+    try {
+      const { data: aal } = await db.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+        const { data: factors } = await db.auth.mfa.listFactors();
+        const totp = factors?.totp || [];
+        if (totp.length > 0) {
+          mfaFactorId = totp[0].id;
+          const { data: ch } = await db.auth.mfa.challenge({ factorId: mfaFactorId });
+          mfaChallengeId = ch.id;
+          document.getElementById('step-login').style.display = 'none';
+          document.getElementById('step-mfa').style.display = 'block';
+          document.getElementById('mfa-code').value = '';
+          document.getElementById('mfa-error').style.display = 'none';
+          document.getElementById('mfa-code').focus();
+          return;
+        }
+      }
+    } catch(e) { /* if MFA check fails, proceed to dashboard */ }
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     document.getElementById('admin-email-display').textContent = user.email;
@@ -526,6 +628,101 @@
   }
 
   async function doSignOut() { await db.auth.signOut(); }
+
+  // ── MFA VERIFY ──
+  async function verifyMfa() {
+    const code = document.getElementById('mfa-code').value.trim().replace(/\s/g, '');
+    const errEl = document.getElementById('mfa-error');
+    const btn = document.getElementById('mfa-btn');
+    errEl.style.display = 'none';
+    if (code.length !== 6) {
+      errEl.textContent = 'Enter the 6-digit code from your app.';
+      errEl.style.display = 'block'; return;
+    }
+    btn.textContent = 'Verifying…'; btn.disabled = true;
+    const { error } = await db.auth.mfa.verify({ factorId: mfaFactorId, challengeId: mfaChallengeId, code });
+    if (error) {
+      errEl.textContent = 'Incorrect code — try again.';
+      errEl.style.display = 'block';
+      btn.textContent = 'Verify →'; btn.disabled = false;
+      document.getElementById('mfa-code').select(); return;
+    }
+    const { data: { session } } = await db.auth.getSession();
+    if (session) enterDash(session.user);
+  }
+
+  async function backToLogin() {
+    await db.auth.signOut();
+  }
+
+  // ── MFA SETUP ──
+  async function startMfaSetup() {
+    const { data, error } = await db.auth.mfa.enroll({ factorType: 'totp', issuer: 'FreshStep Admin', friendlyName: 'Authenticator App' });
+    if (error) { toast('Could not start 2FA setup: ' + error.message, 'err'); return; }
+    enrollData = data;
+    document.getElementById('setup-qr').src = data.totp.qr_code;
+    document.getElementById('setup-secret').textContent = data.totp.secret;
+    document.getElementById('setup-code').value = '';
+    document.getElementById('setup-error').style.display = 'none';
+    document.getElementById('mfa-modal-bg').classList.add('open');
+    document.getElementById('mfa-modal-box').classList.add('open');
+  }
+
+  async function confirmMfaSetup() {
+    const code = document.getElementById('setup-code').value.trim().replace(/\s/g, '');
+    const errEl = document.getElementById('setup-error');
+    errEl.style.display = 'none';
+    if (code.length !== 6) {
+      errEl.textContent = 'Enter the 6-digit code from your app.';
+      errEl.style.display = 'block'; return;
+    }
+    const { data: ch, error: cErr } = await db.auth.mfa.challenge({ factorId: enrollData.id });
+    if (cErr) { errEl.textContent = cErr.message; errEl.style.display = 'block'; return; }
+    const { error } = await db.auth.mfa.verify({ factorId: enrollData.id, challengeId: ch.id, code });
+    if (error) {
+      errEl.textContent = 'Incorrect code — try again.';
+      errEl.style.display = 'block'; return;
+    }
+    closeMfaModal();
+    toast('Two-factor authentication enabled!', 'ok');
+    renderSecurity();
+  }
+
+  async function disableMfa() {
+    if (!confirm('Disable two-factor authentication? Your account will be less secure.')) return;
+    const { data: factors } = await db.auth.mfa.listFactors();
+    const totp = factors?.totp || [];
+    if (totp.length === 0) return;
+    const { error } = await db.auth.mfa.unenroll({ factorId: totp[0].id });
+    if (error) { toast('Error disabling 2FA: ' + error.message, 'err'); return; }
+    toast('Two-factor authentication disabled', 'ok');
+    renderSecurity();
+  }
+
+  function closeMfaModal() {
+    document.getElementById('mfa-modal-bg').classList.remove('open');
+    document.getElementById('mfa-modal-box').classList.remove('open');
+  }
+
+  async function renderSecurity() {
+    const { data: factors } = await db.auth.mfa.listFactors();
+    const hasTotp = (factors?.totp || []).length > 0;
+    document.getElementById('security-content').innerHTML = `
+      <div class="twofa-status">
+        <div>
+          <div class="twofa-label">${hasTotp ? '✅ Enabled' : '❌ Not enabled'}</div>
+          <div class="twofa-desc">${hasTotp
+            ? 'Your account requires an authenticator code on every login.'
+            : 'Add an extra layer of security — you\'ll need an app code each login.'}</div>
+        </div>
+        ${hasTotp
+          ? `<button class="btn-a btn-decline" onclick="disableMfa()">Disable</button>`
+          : `<button class="btn-a btn-accept" onclick="startMfaSetup()">Enable 2FA</button>`}
+      </div>
+      ${!hasTotp ? `<div style="padding:0 1.4rem 1.1rem;font-size:0.8rem;color:#92400E;background:var(--amber-bg);margin:0 1.4rem 1.1rem;border-radius:9px;padding:0.75rem 1rem;line-height:1.6">
+        <strong>How it works:</strong> You install a free app (Google Authenticator or Authy), scan a QR code once, and from then on you get a new 6-digit code every 30 seconds to use when logging in.
+      </div>` : ''}`;
+  }
 
   // ── DATA ──
   async function loadAll() {
@@ -560,6 +757,7 @@
     else if (curView === 'bookings') renderBookings();
     else if (curView === 'calendar') renderCal();
     else if (curView === 'availability') renderAvail();
+    else if (curView === 'security') renderSecurity();
   }
 
   // ── OVERVIEW ──
